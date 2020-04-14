@@ -1,0 +1,80 @@
+{
+  "sensitive-variables": ["sshkey", "password"],
+  "builders":
+  [
+    {
+      "type": "proxmox",
+      "proxmox_url": "{{ proxmox_url }}",
+      "insecure_skip_tls_verify": "{{ proxmox_ssl }}",
+      "username": "{{ proxmox_user }}",
+      "password": "{{ proxmox_pass }}",
+      "node": "{{ target_node }}",
+
+      "iso_url": "{{ k3os_url }}",
+      "iso_checksum": "{{ k3os_md5 }}",
+      "iso_storage_pool": "{{ iso_storage_pool }}",
+      "unmount_iso": true,
+
+      "template_name": "k3os-template",
+      "template_description": "k3os",
+      "qemu_agent": true,
+
+      "communicator": "ssh",
+      "ssh_username": "rancher",
+      "ssh_password": "rancher",
+      "ssh_private_key_file": "{{ tempdir_1.path }}/k3os_rsa",
+
+      "vm_name": "k3os-template",
+      "vm_id": "{{ vm_id }}",
+      "cores": "{{ cores }}",
+      "memory": "{{ memory }}",
+      "sockets": "1",
+      "cpu_type": "host",
+      "os": "l26",
+      "network_adapters": [
+         {
+           "model": "virtio",
+           "bridge": "vmbr0"
+         }
+      ],
+      "scsi_controller": "virtio-scsi-pci",
+      "disks": [
+         {
+           "type": "scsi",
+           "disk_size": "{{ disk_size }}",
+           "storage_pool": "{{ vm_storage_pool }}",
+           "storage_pool_type": "{{ vm_storage_pool_type }}",
+           "format": "raw"
+         }
+      ],
+      "http_directory":"http",
+      "boot_wait": "{{ boot_wait }}",
+      "boot_key_interval": "80ms",
+      "boot_command": [
+         "e<down><down><down><down><down><down><down><left><insert>",
+         "<spacebar>",
+         "<wait>",
+         "ssh_authorized_keys=\"{{ authorized_keys }}\"",
+         "<wait>",
+         "<spacebar>",
+         "boot_cmd=\"echo GA_PATH=/dev/vport2p1>/etc/conf.d/qemu-guest-agent\"",
+         "<f10>"
+      ]
+    }
+  ],
+  "provisioners": [
+    { "type": "file",
+      "source": "{{ tempdir_1.path }}/config.yml",
+      "destination": "/tmp/config.yml"
+    },
+    { "type": "file",
+      "source": "{{ tempdir_1.path }}/install.sh",
+      "destination": "/tmp/install.sh"
+    },
+    {
+      "type": "shell",
+      "execute_command": "{% raw %}{{ .Vars }} sudo -E sh '{{ .Path }}'{% endraw %}",
+      "inline": [ "bash -x /tmp/install.sh --takeover --debug --config /tmp/config.yml /dev/sda" ]
+    }
+  ]
+}

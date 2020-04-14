@@ -1,0 +1,12 @@
+ssh_authorized_keys:
+- {{ authorized_keys }}
+write_files:
+- path: /etc/conf.d/qemu-guest-agent
+  content: |-
+    GA_PATH="/dev/vport2p1"
+  owner: root
+  permissions: '0644'
+
+k3os:
+  data_sources:
+    - cdrom

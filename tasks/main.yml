@@ -1,0 +1,86 @@
+---
+# tasks file for k3os-proxmox
+- name: create temporary files directory
+  tempfile:
+    state: directory
+    suffix: build
+  register: tempdir_1
+
+- debug:
+    var: tempdir_1.path
+
+- name: Create SSHKEY
+  block:
+  - openssh_keypair:
+      path: "{{ tempdir_1.path }}/k3os_rsa"
+  
+  - name: Set Fact Public Key
+    set_fact:
+      authorized_keys: "{{lookup('file', '{{ tempdir_1.path }}/k3os_rsa.pub')}}"
+  when: authorized_keys is not defined
+
+- name: download install script
+  get_url:
+    url: https://raw.githubusercontent.com/rancher/k3os/master/install.sh
+    dest: "{{ tempdir_1.path }}/install.sh"
+
+- name: Get k3os Download Link
+  uri:                                                               
+    url: "https://api.github.com/repos/rancher/k3os/releases/{{ 'tags/' + k3os_version | default('latest') }}"
+    return_content: true                                             
+  register: k3os_response
+
+- name: Set fact ISO Image url
+  set_fact:
+    k3os_url: "{{ k3os_response.json.assets | json_query('[?name==`k3os-amd64.iso`].browser_download_url') | join() }}"
+    k3os_md5_url: "{{ k3os_response.json.assets | json_query('[?name==`sha256sum-amd64.txt`].browser_download_url') | join() }}"
+
+- name: Get k3os checksum
+  uri:                                                               
+    url: "{{ k3os_md5_url }}"
+    return_content: true                                             
+  register: k3os_md5_response
+
+- name: Set Fact MD5 for Checksum
+  set_fact:
+    k3os_md5: "{{ k3os_md5_response.content | regex_findall('(\\S*)\\s*k3os-amd64.iso') | join() }}"
+
+- name: Template a file config.yml
+  template:
+    src: config.yml.j2
+    dest: "{{ tempdir_1.path }}/config.yml"
+
+- name: Template a file k3os-proxmox.yml
+  template:
+    src: k3os-proxmox.yml.j2
+    dest: "{{ tempdir_1.path }}/k3os-proxmox.yml"
+
+- name: Create K3os Template on Proxmox
+  block:
+  - name: Build and push the box using Packer.
+    shell: packer build {{ tempdir_1.path }}/k3os-proxmox.yml
+    register: packer_build
+    # debugger: always
+
+  always:
+  - name: Debug Packer Build
+    debug:
+      var: packer_build.stdout
+
+  - name: Stat created sshkey
+    stat:
+      path: "{{ tempdir_1.path }}/k3os_rsa"
+    register: sshkey_stat
+
+  - debug:
+      var: sshkey_stat
+
+  - name: Move sshkeys to bar
+    shell: "mv {{ tempdir_1.path }}/k3os_rsa* ~/.ssh/"
+    when: sshkey_stat.stat.exists
+
+  - name: use the registered var and the file module to remove the temporary file
+    file:
+      path: "{{ tempfile_1.path }}"
+      state: absent
+    when: tempfile_1.path is defined

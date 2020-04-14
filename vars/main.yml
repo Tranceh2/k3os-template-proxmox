@@ -1,0 +1,17 @@
+---
+# vars file for k3os-proxmox
+k3os_version: v0.10.0
+
+vm_id: "9500"
+proxmox_url: "https://proxmox:8006/api2/json"
+proxmox_ssl: "true"
+proxmox_user: "root@pam"
+proxmox_pass: "password"
+target_node: "node1"
+iso_storage_pool: "local"
+vm_storage_pool: "local-lvm"
+vm_storage_pool_type: "lvm"
+cores: "2"
+memory: "2024"
+disk_size: "10G"
+boot_wait: "8s"
