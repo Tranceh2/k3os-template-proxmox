@@ -1,7 +1,6 @@
 Role Name
 =========
-
-A brief description of the role goes here.
+99% inspired in https://github.com/TheCase/k3os-proxmox-packer
 
 Requirements
 ------------
